@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Perfil de jugador autenticado con Google",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID de Firebase Authentication",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Correo de Gmail del jugador",
+          "maxLength": 256
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Nombre visible del jugador",
+          "maxLength": 100
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Avatar de Google del jugador",
+          "maxLength": 512
+        },
+        "bestScore": {
+          "type": "number",
+          "description": "Mejor puntuación histórica del jugador"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha y hora de creación de la cuenta"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha y hora de última actualización"
+        }
+      },
+      "required": ["userId", "email", "displayName"]
+    },
+    "Score": {
+      "title": "Score",
+      "description": "Registro de partida en la tabla de récords arcade",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID del jugador que anotó la puntuación",
+          "maxLength": 128
+        },
+        "playerName": {
+          "type": "string",
+          "description": "Nombre o alias del jugador",
+          "maxLength": 100
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email de Gmail del jugador",
+          "maxLength": 256
+        },
+        "score": {
+          "type": "number",
+          "description": "Puntuación final obtenida"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Modo de juego jugado",
+          "enum": ["TIME_ATTACK", "SURVIVAL", "FRENZY"]
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Dificultad de la partida",
+          "enum": ["EASY", "MEDIUM", "HARD"]
+        },
+        "accuracy": {
+          "type": "number",
+          "description": "Porcentaje de precisión de golpes (0-100)"
+        },
+        "maxCombo": {
+          "type": "number",
+          "description": "Racha máxima de golpes consecutivos"
+        },
+        "molesHit": {
+          "type": "number",
+          "description": "Total de topos noqueados"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento en que se registró el récord"
+        }
+      },
+      "required": ["userId", "playerName", "score", "mode", "difficulty", "accuracy", "maxCombo", "molesHit"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Colección de perfiles de usuario autenticados"
+    },
+    "/scores/{scoreId}": {
+      "schema": {
+        "$ref": "#/entities/Score"
+      },
+      "description": "Colección global de puntuaciones arcade registradas por usuarios autenticados"
+    }
+  }
+}

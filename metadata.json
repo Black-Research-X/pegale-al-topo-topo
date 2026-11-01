@@ -1,0 +1,6 @@
+{
+  "name": "Pégale al Topo Arcade",
+  "description": "Divertido videojuego arcade de Pégale al Topo (Whack-a-Mole) con combos, diferentes tipos de topos, poderes especiales, mazos personalizables y efectos de sonido.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
+import { MoleMascotBadge } from './MoleMascotBadge';
 
 interface AuthGateProps {
   onSuccess?: () => void;
@@ -36,12 +37,7 @@ export const AuthGate: React.FC<AuthGateProps> = () => {
       {/* Mascot Badge */}
       <div className="flex justify-center mb-4">
         <div className="relative">
-          <img
-            src="/src/assets/images/mole_arcade_badge_1793567789459.jpg"
-            alt="Mascota Pégale al Topo"
-            referrerPolicy="no-referrer"
-            className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-2 border-amber-400 shadow-xl"
-          />
+          <MoleMascotBadge />
           <div className="absolute -bottom-2 -right-2 bg-amber-400 text-amber-950 font-black text-xs px-2.5 py-0.5 rounded-full shadow-md">
             GMAIL LOGIN
           </div>

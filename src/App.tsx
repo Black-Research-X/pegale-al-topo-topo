@@ -34,6 +34,7 @@ import { HammersModal } from './components/HammersModal';
 import { RecordsModal } from './components/RecordsModal';
 import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
+import moleGardenBackdrop from './assets/images/mole_garden_backdrop_1793567790955.jpg';
 
 type AppState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
 
@@ -794,7 +795,7 @@ export default function App() {
         screenShake ? 'animate-shake' : ''
       }`}
       style={{
-        backgroundImage: `linear-gradient(rgba(41, 20, 10, 0.75), rgba(20, 10, 5, 0.88)), url(/src/assets/images/mole_garden_backdrop_1793567790955.jpg)`,
+        backgroundImage: `linear-gradient(rgba(41, 20, 10, 0.75), rgba(20, 10, 5, 0.88)), url(${moleGardenBackdrop}), url(/images/mole_garden_backdrop.jpg)`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',

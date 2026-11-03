@@ -3,6 +3,7 @@ import { Play, Flame, Heart, Clock, Award, Trophy, BookOpen, UserCheck } from 'l
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { GameMode, Difficulty, HammerId } from '../types/game';
 import { HAMMERS } from '../types/game';
+import { MoleMascotBadge } from './MoleMascotBadge';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -44,12 +45,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Hero Badge & Title */}
       <div className="flex flex-col items-center text-center mb-5">
         <div className="relative mb-3">
-          <img
-            src="/src/assets/images/mole_arcade_badge_1793567789459.jpg"
-            alt="Mascota Pégale al Topo"
-            referrerPolicy="no-referrer"
-            className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-2 border-amber-400 shadow-lg"
-          />
+          <MoleMascotBadge />
           <div className="absolute -bottom-2 -right-2 bg-amber-400 text-amber-950 font-black text-xs px-2 py-0.5 rounded-full shadow-md">
             ARCADE
           </div>

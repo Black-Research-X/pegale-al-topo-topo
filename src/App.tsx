@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { auth, db, logOut, handleFirestoreError, OperationType } from './lib/firebase';
+import { auth, db, logOut, handleFirestoreError, OperationType, checkIsAdmin } from './lib/firebase';
 import type {
   MoleData,
   MoleType,
@@ -34,6 +34,8 @@ import { HammersModal } from './components/HammersModal';
 import { RecordsModal } from './components/RecordsModal';
 import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { InstructionsPage } from './components/InstructionsPage';
 import { moleBackdropBase64 } from './assets/images/moleBackdropBase64';
 
 type AppState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
@@ -41,7 +43,30 @@ type AppState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
 export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Router state for /instrucciones and pages
+  const [currentPath, setCurrentPath] = useState(() => {
+    return typeof window !== 'undefined' ? window.location.pathname : '/';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: string) => {
+    if (typeof window !== 'undefined' && window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // App state
   const [appState, setAppState] = useState<AppState>('MENU');
@@ -152,9 +177,19 @@ export default function App() {
 
   // Listen to Auth State
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setAuthLoading(false);
+      if (user) {
+        try {
+          const admin = await checkIsAdmin(user);
+          setIsAdmin(admin);
+        } catch {
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -814,6 +849,8 @@ export default function App() {
       {/* Top Bar Navigation */}
       <Navigation
         onOpenHowTo={() => setHowToOpen(true)}
+        onOpenInstructions={() => navigateTo('/instrucciones')}
+        onNavigateHome={() => navigateTo('/')}
         onOpenHammers={() => setHammersOpen(true)}
         onOpenRecords={() => {
           setRecordsInitialTab('global');
@@ -825,6 +862,7 @@ export default function App() {
         }}
         onStartOrResume={() => {
           if (!currentUser) return;
+          if (currentPath !== '/') navigateTo('/');
           if (appState === 'PLAYING') handlePause();
           else if (appState === 'PAUSED') handleResume();
           else handleStartGame();
@@ -834,6 +872,8 @@ export default function App() {
         onToggleMute={handleToggleMute}
         currentUser={currentUser}
         onLogout={handleLogout}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setAdminPanelOpen(true)}
       />
 
       {/* Main Game Stage */}
@@ -850,7 +890,9 @@ export default function App() {
           visible={cursorVisible}
         />
 
-        {authLoading ? (
+        {currentPath === '/instrucciones' ? (
+          <InstructionsPage onBackToGame={() => navigateTo('/')} />
+        ) : authLoading ? (
           <div className="text-center p-10 text-amber-200 text-sm">
             Cargando juego y sesión de usuario...
           </div>
@@ -867,6 +909,7 @@ export default function App() {
             selectedHammer={selectedHammer}
             onOpenHammers={() => setHammersOpen(true)}
             onOpenHowTo={() => setHowToOpen(true)}
+            onOpenInstructions={() => navigateTo('/instrucciones')}
             onOpenRecords={() => {
               setRecordsInitialTab('global');
               setRecordsOpen(true);
@@ -879,6 +922,8 @@ export default function App() {
             onToggleKeyboardHints={() => setShowKeyHints(!showKeyHints)}
             highScore={highestScore}
             currentUser={currentUser}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => setAdminPanelOpen(true)}
           />
         ) : (
           <div className="w-full flex flex-col items-center">
@@ -977,6 +1022,12 @@ export default function App() {
         onPlayAgain={handleStartGame}
         onBackToMenu={() => setAppState('MENU')}
         onSaveRecord={handleSaveRecord}
+      />
+
+      <AdminPanelModal
+        isOpen={adminPanelOpen}
+        onClose={() => setAdminPanelOpen(false)}
+        currentAdminUid={currentUser?.uid || ''}
       />
     </div>
   );

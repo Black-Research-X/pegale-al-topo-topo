@@ -1,9 +1,11 @@
 import React from 'react';
-import { Volume2, VolumeX, Play, LogOut, User } from 'lucide-react';
+import { Volume2, VolumeX, Play, LogOut, User, ShieldCheck, BookOpen } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 interface NavigationProps {
   onOpenHowTo: () => void;
+  onOpenInstructions: () => void;
+  onNavigateHome: () => void;
   onOpenHammers: () => void;
   onOpenRecords: () => void;
   onOpenAchievements: () => void;
@@ -13,10 +15,14 @@ interface NavigationProps {
   onToggleMute: () => void;
   currentUser: FirebaseUser | null;
   onLogout: () => void;
+  isAdmin: boolean;
+  onOpenAdmin: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   onOpenHowTo,
+  onOpenInstructions,
+  onNavigateHome,
   onOpenHammers,
   onOpenRecords,
   onOpenAchievements,
@@ -26,14 +32,17 @@ export const Navigation: React.FC<NavigationProps> = ({
   onToggleMute,
   currentUser,
   onLogout,
+  isAdmin,
+  onOpenAdmin,
 }) => {
   return (
     <header className="flex items-center justify-between gap-8 px-6 py-3.5 bg-amber-950/90 text-amber-50 border-b border-amber-900/60 backdrop-blur-md sticky top-0 z-40 shadow-md">
       {/* Zone 1: Wordmark */}
       <a
-        href="#"
+        href="/"
         onClick={(e) => {
           e.preventDefault();
+          onNavigateHome();
         }}
         className="text-xl sm:text-2xl font-black tracking-tight text-amber-300 font-['Fredoka'] whitespace-nowrap shrink-0 hover:text-amber-200 transition-colors"
       >
@@ -43,10 +52,10 @@ export const Navigation: React.FC<NavigationProps> = ({
       {/* Zone 2: 4-5 Clean Nav Links */}
       <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-amber-200/90">
         <button
-          onClick={onOpenHowTo}
+          onClick={onOpenInstructions}
           className="hover:text-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
-          Reglas
+          Instrucciones
         </button>
         <button
           onClick={onOpenHammers}
@@ -66,10 +75,39 @@ export const Navigation: React.FC<NavigationProps> = ({
         >
           Logros
         </button>
+        {isAdmin && (
+          <button
+            onClick={onOpenAdmin}
+            className="text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1 font-bold bg-amber-900/80 px-2.5 py-1 rounded-lg border border-amber-600/70"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Admin</span>
+          </button>
+        )}
       </nav>
 
       {/* Zone 3: 1 Primary Action + Audio & User Info */}
       <div className="flex items-center gap-2.5 shrink-0">
+        {/* Mobile Instructions Button */}
+        <button
+          onClick={onOpenInstructions}
+          title="Instrucciones del juego"
+          className="md:hidden p-2 rounded-lg bg-amber-900/60 text-amber-300 border border-amber-800 cursor-pointer"
+        >
+          <BookOpen className="w-4 h-4" />
+        </button>
+
+        {/* Mobile Admin Button */}
+        {isAdmin && (
+          <button
+            onClick={onOpenAdmin}
+            title="Panel de Administración"
+            className="md:hidden p-2 rounded-lg bg-amber-900/80 text-amber-400 border border-amber-600 cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </button>
+        )}
+
         {/* Audio Mute */}
         <button
           onClick={onToggleMute}

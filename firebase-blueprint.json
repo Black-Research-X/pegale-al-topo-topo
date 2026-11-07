@@ -95,6 +95,39 @@
         }
       },
       "required": ["userId", "playerName", "score", "mode", "difficulty", "accuracy", "maxCombo", "molesHit"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Registro de usuario con privilegios de administrador",
+      "type": "object",
+      "properties": {
+        "adminId": {
+          "type": "string",
+          "description": "UID del usuario administrador",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Correo del usuario administrador",
+          "maxLength": 256
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Nombre del administrador",
+          "maxLength": 100
+        },
+        "addedBy": {
+          "type": "string",
+          "description": "UID del administrador que otorgó los permisos",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha en que se otorgaron los permisos"
+        }
+      },
+      "required": ["adminId", "email"]
     }
   },
   "firestore": {
@@ -109,6 +142,12 @@
         "$ref": "#/entities/Score"
       },
       "description": "Colección global de puntuaciones arcade registradas por usuarios autenticados"
+    },
+    "/admins/{adminId}": {
+      "schema": {
+        "$ref": "#/entities/Admin"
+      },
+      "description": "Colección de usuarios con rol de administrador del sistema"
     }
   }
 }

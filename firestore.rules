@@ -17,6 +17,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isRootAdmin() {
+      return isSignedIn() && request.auth.uid == 'H6QC4mER9SZmL58wtY3QHo0Pg6A2';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == 'H6QC4mER9SZmL58wtY3QHo0Pg6A2' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -58,13 +69,24 @@ service cloud.firestore {
              (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string);
     }
 
+    // Admin entity validation
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['adminId', 'email']) &&
+             data.keys().hasOnly(['adminId', 'email', 'displayName', 'addedBy', 'createdAt']) &&
+             data.adminId is string && data.adminId.size() > 0 && data.adminId.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('addedBy' in data) || (data.addedBy is string && data.addedBy.size() <= 128)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string);
+    }
+
     // User profiles collection
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().userId == existing().userId;
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Scores collection (Leaderboard)
@@ -73,7 +95,16 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidId(scoreId) && isValidScore(incoming());
       allow update: if false; // Scores are immutable records
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdmin(incoming());
+      allow update: if isAdmin() && isValidId(adminId) && isValidAdmin(incoming());
+      allow delete: if isAdmin() && adminId != 'H6QC4mER9SZmL58wtY3QHo0Pg6A2';
     }
   }
 }

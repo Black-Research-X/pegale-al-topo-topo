@@ -14,12 +14,15 @@ interface TitleScreenProps {
   selectedHammer: HammerId;
   onOpenHammers: () => void;
   onOpenHowTo: () => void;
+  onOpenInstructions: () => void;
   onOpenRecords: () => void;
   onOpenAchievements: () => void;
   showKeyboardHints: boolean;
   onToggleKeyboardHints: () => void;
   highScore: number;
   currentUser: FirebaseUser | null;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -31,12 +34,15 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   selectedHammer,
   onOpenHammers,
   onOpenHowTo,
+  onOpenInstructions,
   onOpenRecords,
   onOpenAchievements,
   showKeyboardHints,
   onToggleKeyboardHints,
   highScore,
   currentUser,
+  isAdmin = false,
+  onOpenAdmin,
 }) => {
   const currentHammer = HAMMERS[selectedHammer];
 
@@ -57,12 +63,23 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
         {/* User Account Bar */}
         {currentUser && (
-          <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-900/60 border border-emerald-600/60 text-xs text-amber-100 shadow-xs">
-            <UserCheck className="w-4 h-4 text-emerald-400" />
-            <span>Jugador:</span>
-            <strong className="text-amber-300 font-semibold">
-              {currentUser.displayName || currentUser.email}
-            </strong>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-900/60 border border-emerald-600/60 text-xs text-amber-100 shadow-xs">
+              <UserCheck className="w-4 h-4 text-emerald-400" />
+              <span>Jugador:</span>
+              <strong className="text-amber-300 font-semibold">
+                {currentUser.displayName || currentUser.email}
+              </strong>
+            </div>
+
+            {isAdmin && onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition-colors cursor-pointer shadow-md"
+              >
+                <span>🛡️ Panel Admin</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -176,7 +193,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       {/* Hammer Equipment & Keyboard Option */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
         {/* Hammer selector preview */}
         <div
           onClick={onOpenHammers}
@@ -229,20 +246,31 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Start Game Action */}
       <button
         onClick={onStartGame}
-        className="w-full py-4 rounded-2xl font-black font-['Fredoka'] text-lg sm:text-xl text-amber-950 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer mb-4"
+        className="w-full py-4 rounded-2xl font-black font-['Fredoka'] text-lg sm:text-xl text-amber-950 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer mb-3"
       >
         <Play className="w-6 h-6 fill-amber-950" />
         <span>¡EMPEZAR PARTIDA!</span>
       </button>
 
+      {/* Dedicated Instructions Banner Button */}
+      <div className="mb-4">
+        <button
+          onClick={onOpenInstructions}
+          className="w-full py-2.5 px-4 rounded-xl bg-amber-900/60 hover:bg-amber-900 text-amber-200 hover:text-white border border-amber-700/70 transition-all flex items-center justify-center gap-2 text-xs font-bold cursor-pointer"
+        >
+          <BookOpen className="w-4 h-4 text-amber-400" />
+          <span>Ver Manual e Instrucciones Completas del Juego (/instrucciones)</span>
+        </button>
+      </div>
+
       {/* Auxiliary Nav Buttons */}
       <div className="flex items-center justify-center gap-4 text-xs font-semibold text-amber-200/80 pt-2 border-t border-amber-900/60">
         <button
-          onClick={onOpenHowTo}
+          onClick={onOpenInstructions}
           className="hover:text-amber-100 transition-colors flex items-center gap-1 cursor-pointer"
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Reglas de Juego</span>
+          <span>Instrucciones</span>
         </button>
         <span className="text-amber-700">·</span>
         <button

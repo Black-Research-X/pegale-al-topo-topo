@@ -8,6 +8,7 @@ import {
   restorePendingScoreNotification,
   subscribeToServiceWorkerNotifications,
   triggerAdminBroadcastNotification,
+  syncWebPushSubscription,
   type NotificationPermissionState,
   type ScoreNotificationPayload,
 } from '../utils/notifications';
@@ -32,7 +33,11 @@ export function useNotifications(userId?: string | null) {
   // Sync permission state on mount and focus
   useEffect(() => {
     const syncPermission = () => {
-      setPermission(getNotificationPermission());
+      const nextPerm = getNotificationPermission();
+      setPermission(nextPerm);
+      if (nextPerm === 'granted' && userId) {
+        void syncWebPushSubscription();
+      }
     };
 
     window.addEventListener('focus', syncPermission);
@@ -41,7 +46,7 @@ export function useNotifications(userId?: string | null) {
       window.removeEventListener('focus', syncPermission);
       document.removeEventListener('visibilitychange', syncPermission);
     };
-  }, []);
+  }, [userId]);
 
   // Restore any pending 1-minute score notification & listen to SW messages
   useEffect(() => {
@@ -53,9 +58,13 @@ export function useNotifications(userId?: string | null) {
     return unsubscribe;
   }, [handleIncomingNotification]);
 
-  // Listen to real-time admin broadcast announcements when signed in
+  // Sync Web Push VAPID subscription & listen to real-time admin broadcasts when signed in
   useEffect(() => {
     if (!userId) return;
+
+    if (getNotificationPermission() === 'granted') {
+      void syncWebPushSubscription();
+    }
 
     const unsubscribe = subscribeToAnnouncements((announcement) => {
       void triggerAdminBroadcastNotification(announcement, handleIncomingNotification);
@@ -67,6 +76,9 @@ export function useNotifications(userId?: string | null) {
   const requestPermission = useCallback(async () => {
     const result = await requestNotificationPermission();
     setPermission(result);
+    if (result === 'granted') {
+      await syncWebPushSubscription();
+    }
     return result;
   }, []);
 

@@ -134,12 +134,16 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Handle standard Web Push events
+// Handle standard Web Push events (works even when app is closed)
 self.addEventListener('push', (event) => {
   let payload = {
+    type: 'SCORE_REMINDER',
     title: '¡Pégale al Topo Arcade!',
+    rawTitle: '',
     body: '¿Listo para superar tu último puntaje?',
     score: 0,
+    senderName: 'Administrador',
+    url: '/',
     id: Date.now().toString(),
   };
 
@@ -150,6 +154,48 @@ self.addEventListener('push', (event) => {
     } catch {
       payload.body = event.data.text();
     }
+  }
+
+  if (payload.type === 'ADMIN_BROADCAST') {
+    const tag = `pegale-al-topo-admin-${payload.id}`;
+    event.waitUntil(
+      (async () => {
+        try {
+          await self.registration.showNotification(payload.title, {
+            body: payload.body,
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            tag,
+            vibrate: [200, 100, 200],
+            renotify: true,
+            data: {
+              url: payload.url || '/',
+              id: payload.id,
+              type: 'ADMIN_BROADCAST',
+            },
+          });
+        } catch (err) {
+          console.warn('SW push admin showNotification failed:', err);
+        }
+
+        const windowClients = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        for (const client of windowClients) {
+          client.postMessage({
+            type: 'ADMIN_PUSH_DELIVERED',
+            payload: {
+              id: payload.id,
+              title: payload.rawTitle || payload.title,
+              body: payload.body,
+              senderName: payload.senderName || 'Administrador',
+            },
+          });
+        }
+      })()
+    );
+    return;
   }
 
   event.waitUntil(displayScoreNotification(payload));

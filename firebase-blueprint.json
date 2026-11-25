@@ -161,6 +161,49 @@
         }
       },
       "required": ["title", "message", "senderUid", "createdAt"]
+    },
+    "PushSubscription": {
+      "title": "PushSubscription",
+      "description": "Suscripción Web Push VAPID de un navegador o dispositivo para recibir notificaciones en segundo plano",
+      "type": "object",
+      "properties": {
+        "subscriptionId": {
+          "type": "string",
+          "description": "Hash determinístico del endpoint de suscripción",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID del usuario dueño de la suscripción",
+          "maxLength": 128
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "URL HTTPS del servicio Web Push del navegador",
+          "maxLength": 1024
+        },
+        "p256dh": {
+          "type": "string",
+          "description": "Clave pública P-256 del cliente para cifrado Web Push",
+          "maxLength": 512
+        },
+        "auth": {
+          "type": "string",
+          "description": "Secreto de autenticación Web Push del cliente",
+          "maxLength": 256
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Identificador resumido del navegador/dispositivo",
+          "maxLength": 300
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha de registro o renovación de la suscripción"
+        }
+      },
+      "required": ["subscriptionId", "userId", "endpoint", "p256dh", "auth", "updatedAt"]
     }
   },
   "firestore": {
@@ -187,6 +230,12 @@
         "$ref": "#/entities/Announcement"
       },
       "description": "Avisos globales enviados por administradores como notificaciones push"
+    },
+    "/push_subscriptions/{subscriptionId}": {
+      "schema": {
+        "$ref": "#/entities/PushSubscription"
+      },
+      "description": "Suscripciones Web Push VAPID por dispositivo y usuario"
     }
   }
 }

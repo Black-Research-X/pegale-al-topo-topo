@@ -1,4 +1,5 @@
 import type { GameMode } from '../types/game';
+import { auth, savePushSubscriptionToFirestore } from '../lib/firebase';
 
 export type NotificationPermissionState = NotificationPermission | 'unsupported';
 
@@ -177,6 +178,151 @@ function scheduleTimersForPayload(
   }, delayMs + 450);
 }
 
+async function getFirebaseIdToken(): Promise<string | null> {
+  try {
+    if (!auth.currentUser) return null;
+    return await auth.currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const buffer = new ArrayBuffer(rawData.length);
+  const outputArray = new Uint8Array(buffer);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function computeSubscriptionId(endpoint: string): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const encoded = new TextEncoder().encode(endpoint);
+    const digest = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return endpoint.replace(/[^a-zA-Z0-9_-]/g, '').slice(-64);
+}
+
+export async function getActivePushSubscription(): Promise<PushSubscriptionJSON | null> {
+  if (
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window)
+  ) {
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    return sub ? sub.toJSON() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function syncWebPushSubscription(): Promise<boolean> {
+  if (
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window) ||
+    !isNotificationSupported() ||
+    Notification.permission !== 'granted' ||
+    !auth.currentUser
+  ) {
+    return false;
+  }
+
+  try {
+    const keyRes = await fetch('/api/push/vapid-public-key');
+    if (!keyRes.ok) return false;
+    const { publicKey } = (await keyRes.json()) as { publicKey?: string };
+    if (!publicKey) return false;
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    // Re-subscribe if missing or applicationServerKey differs
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    const subJson = subscription.toJSON();
+    if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+      return false;
+    }
+
+    const subscriptionId = await computeSubscriptionId(subJson.endpoint);
+
+    // 1. Persistir en Firestore para alcance global entre sesiones/servidores
+    await savePushSubscriptionToFirestore({
+      subscriptionId,
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      authKey: subJson.keys.auth,
+    });
+
+    // 2. Registrar en servidor Node.js para envíos inmediatos y diferidos en segundo plano
+    const idToken = await getFirebaseIdToken();
+    if (idToken) {
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ subscription: subJson }),
+      });
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('No se pudo sincronizar la suscripción Web Push VAPID:', err);
+    return false;
+  }
+}
+
+async function scheduleScorePushOnServer(params: {
+  id: string;
+  score: number;
+  modeLabel: string;
+  playerName?: string | null;
+}): Promise<void> {
+  try {
+    const idToken = await getFirebaseIdToken();
+    if (!idToken) return;
+
+    const subscription = await getActivePushSubscription();
+    await fetch('/api/push/schedule-score', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        id: params.id,
+        score: params.score,
+        modeLabel: params.modeLabel,
+        playerName: params.playerName || '',
+        delayMs: SCORE_NOTIFICATION_DELAY_MS,
+        subscription,
+      }),
+    });
+  } catch (err) {
+    console.warn('No se pudo programar el push en el servidor:', err);
+  }
+}
+
 export function scheduleLastScoreNotification(
   params: {
     score: number;
@@ -201,6 +347,12 @@ export function scheduleLastScoreNotification(
 
   savePendingNotification(payload);
   scheduleTimersForPayload(payload, SCORE_NOTIFICATION_DELAY_MS, onInAppNotify);
+  void scheduleScorePushOnServer({
+    id: payload.id,
+    score: params.score,
+    modeLabel,
+    playerName: cleanName,
+  });
   return payload;
 }
 
@@ -233,24 +385,45 @@ export function subscribeToServiceWorkerNotifications(
 
   const handleMessage = (event: MessageEvent) => {
     const data = event.data;
-    if (!data || data.type !== 'SCORE_NOTIFICATION_DELIVERED' || !data.payload) return;
+    if (!data || !data.payload) return;
 
-    const incoming = data.payload as { id: string; title: string; body: string; score: number };
-    const isFresh = markAsDelivered(incoming.id);
-    if (!isFresh) return;
+    if (data.type === 'SCORE_NOTIFICATION_DELIVERED') {
+      const incoming = data.payload as { id: string; title: string; body: string; score: number };
+      const isFresh = markAsDelivered(incoming.id);
+      if (!isFresh) return;
 
-    clearBackupTimer();
-    const stored = readPendingNotification();
-    const fullPayload: ScoreNotificationPayload = {
-      id: incoming.id,
-      title: incoming.title,
-      body: incoming.body,
-      score: incoming.score,
-      modeLabel: stored?.modeLabel || 'Arcade',
-      fireAt: stored?.fireAt || Date.now(),
-      delivered: true,
-    };
-    onInAppNotify(fullPayload);
+      clearBackupTimer();
+      const stored = readPendingNotification();
+      const fullPayload: ScoreNotificationPayload = {
+        id: incoming.id,
+        title: incoming.title,
+        body: incoming.body,
+        score: incoming.score,
+        modeLabel: stored?.modeLabel || 'Arcade',
+        fireAt: stored?.fireAt || Date.now(),
+        delivered: true,
+      };
+      onInAppNotify(fullPayload);
+    } else if (data.type === 'ADMIN_PUSH_DELIVERED') {
+      const incoming = data.payload as {
+        id: string;
+        title: string;
+        body: string;
+        senderName?: string;
+      };
+      const seen = getSeenAnnouncementIds();
+      if (seen.has(incoming.id)) return;
+      markAnnouncementSeen(incoming.id, Date.now());
+      onInAppNotify({
+        id: incoming.id,
+        title: incoming.title,
+        body: incoming.body,
+        fireAt: Date.now(),
+        delivered: true,
+        kind: 'ADMIN_BROADCAST',
+        senderName: incoming.senderName || 'Administrador',
+      });
+    }
   };
 
   navigator.serviceWorker.addEventListener('message', handleMessage);
@@ -369,4 +542,50 @@ export async function triggerAdminBroadcastNotification(
 
   onInAppNotify(payload);
   return true;
+}
+
+export async function sendBroadcastPushViaServer(params: {
+  id: string;
+  title: string;
+  message: string;
+  senderName?: string | null;
+}): Promise<{ ok: boolean; totalTargets: number; sentCount: number; failedCount: number }> {
+  const idToken = await getFirebaseIdToken();
+  if (!idToken) {
+    return { ok: false, totalTargets: 0, sentCount: 0, failedCount: 0 };
+  }
+
+  try {
+    const res = await fetch('/api/push/broadcast', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        id: params.id,
+        title: params.title,
+        message: params.message,
+        senderName:
+          params.senderName ||
+          auth.currentUser?.displayName ||
+          auth.currentUser?.email ||
+          'Administrador',
+      }),
+    });
+
+    if (!res.ok) {
+      return { ok: false, totalTargets: 0, sentCount: 0, failedCount: 0 };
+    }
+
+    return (await res.json()) as {
+      ok: boolean;
+      totalTargets: number;
+      sentCount: number;
+      failedCount: number;
+    };
+  } catch (err) {
+    console.warn('Error llamando a /api/push/broadcast:', err);
+    return { ok: false, totalTargets: 0, sentCount: 0, failedCount: 0 };
+  }
 }

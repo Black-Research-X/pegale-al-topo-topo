@@ -31,6 +31,7 @@ import {
   type AdminRecordData,
   type AdminAnnouncementData,
 } from '../lib/firebase';
+import { sendBroadcastPushViaServer } from '../utils/notifications';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -214,13 +215,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setSendingNotice(true);
     setStatusMsg(null);
     try {
-      await sendAdminAnnouncement(noticeTitle, noticeMessage);
+      const announcementId = await sendAdminAnnouncement(noticeTitle, noticeMessage);
+      const pushResult = await sendBroadcastPushViaServer({
+        id: announcementId,
+        title: noticeTitle.trim(),
+        message: noticeMessage.trim(),
+      });
+
       setNoticeTitle('');
       setNoticeMessage('');
-      setStatusMsg({
-        text: '¡Aviso enviado! Todos los usuarios activos recibirán la notificación push.',
-        type: 'success',
-      });
+      if (pushResult.ok) {
+        setStatusMsg({
+          text:
+            pushResult.totalTargets > 0
+              ? `¡Aviso enviado! Web Push entregado a ${pushResult.sentCount} de ${pushResult.totalTargets} dispositivo(s) suscrito(s).`
+              : '¡Aviso publicado! Los usuarios conectados lo verán en pantalla (aún no hay dispositivos con permiso push en segundo plano).',
+          type: 'success',
+        });
+      } else {
+        setStatusMsg({
+          text: '¡Aviso publicado en la app! Todos los usuarios activos lo recibirán en pantalla.',
+          type: 'success',
+        });
+      }
       const data = await fetchAdminAnnouncements();
       setAnnouncements(data);
     } catch (err) {

@@ -480,3 +480,31 @@ export function subscribeToAnnouncements(
   );
 }
 
+// Save or update user's Web Push VAPID subscription in Firestore
+export async function savePushSubscriptionToFirestore(params: {
+  subscriptionId: string;
+  endpoint: string;
+  p256dh: string;
+  authKey: string;
+}): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) return;
+
+  const userAgent =
+    typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : '';
+
+  try {
+    await setDoc(doc(db, 'push_subscriptions', params.subscriptionId), {
+      subscriptionId: params.subscriptionId.slice(0, 128),
+      userId: current.uid,
+      endpoint: params.endpoint.slice(0, 1024),
+      p256dh: params.p256dh.slice(0, 512),
+      auth: params.authKey.slice(0, 256),
+      userAgent,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `push_subscriptions/${params.subscriptionId}`);
+  }
+}
+

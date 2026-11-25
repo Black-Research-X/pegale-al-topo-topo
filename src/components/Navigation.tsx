@@ -1,7 +1,8 @@
 import React from 'react';
-import { Volume2, VolumeX, Play, LogOut, User, ShieldCheck, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, Play, LogOut, User, ShieldCheck, BookOpen, Bell, BellRing, BellOff } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { PWAInstallButton } from './PWAInstallButton';
+import type { NotificationPermissionState } from '../utils/notifications';
 
 interface NavigationProps {
   onOpenHowTo: () => void;
@@ -18,6 +19,8 @@ interface NavigationProps {
   onLogout: () => void;
   isAdmin: boolean;
   onOpenAdmin: () => void;
+  notificationPermission?: NotificationPermissionState;
+  onRequestNotificationPermission?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -35,6 +38,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   onLogout,
   isAdmin,
   onOpenAdmin,
+  notificationPermission = 'default',
+  onRequestNotificationPermission,
 }) => {
   return (
     <header className="flex items-center justify-between gap-8 px-6 py-3.5 bg-amber-950/90 text-amber-50 border-b border-amber-900/60 backdrop-blur-md sticky top-0 z-40 shadow-md">
@@ -111,6 +116,40 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* PWA Install Prompt */}
         <PWAInstallButton variant="header" />
+
+        {/* Push Notification Permission Toggle */}
+        {currentUser && notificationPermission !== 'unsupported' && onRequestNotificationPermission && (
+          <button
+            onClick={onRequestNotificationPermission}
+            title={
+              notificationPermission === 'granted'
+                ? 'Notificaciones push activadas (aviso 1 min después de jugar)'
+                : notificationPermission === 'denied'
+                ? 'Notificaciones bloqueadas en el navegador (se mostrará aviso en pantalla)'
+                : 'Activar notificaciones push (1 min después de jugar)'
+            }
+            aria-label={
+              notificationPermission === 'granted'
+                ? 'Notificaciones activadas'
+                : 'Activar notificaciones push'
+            }
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
+              notificationPermission === 'granted'
+                ? 'bg-emerald-900/70 text-emerald-300 border-emerald-600/70 hover:bg-emerald-800/80'
+                : notificationPermission === 'denied'
+                ? 'bg-amber-900/40 text-amber-400/60 border-amber-800/60 hover:bg-amber-900/70'
+                : 'bg-amber-900/60 text-amber-300 border-amber-800/80 hover:bg-amber-800'
+            }`}
+          >
+            {notificationPermission === 'granted' ? (
+              <BellRing className="w-4 h-4" />
+            ) : notificationPermission === 'denied' ? (
+              <BellOff className="w-4 h-4" />
+            ) : (
+              <Bell className="w-4 h-4" />
+            )}
+          </button>
+        )}
 
         {/* Audio Mute */}
         <button

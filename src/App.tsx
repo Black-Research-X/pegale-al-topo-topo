@@ -37,6 +37,8 @@ import { PauseModal } from './components/PauseModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { InstructionsPage } from './components/InstructionsPage';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { ScorePushToast } from './components/ScorePushToast';
+import { useNotifications } from './hooks/useNotifications';
 import { moleBackdropBase64 } from './assets/images/moleBackdropBase64';
 
 type AppState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
@@ -83,6 +85,16 @@ export default function App() {
 
   // Sound mute state
   const [isMuted, setIsMuted] = useState(() => sound.getMuted());
+
+  // Push Notifications (1 minute after game over)
+  const {
+    permission: notificationPermission,
+    requestPermission: requestNotificationPermission,
+    scheduleMatchNotification,
+    activeToast,
+    dismissToast,
+  } = useNotifications();
+  const prevAppStateRef = useRef<AppState>(appState);
 
   // Keyboard shortcut hints toggle
   const [showKeyHints, setShowKeyHints] = useState(true);
@@ -372,6 +384,18 @@ export default function App() {
       return next;
     });
   }, [gameMode, maxComboGame, score, stats]);
+
+  // Schedule push notification exactly 1 minute after match transitions to GAME_OVER
+  useEffect(() => {
+    if (prevAppStateRef.current !== 'GAME_OVER' && appState === 'GAME_OVER') {
+      scheduleMatchNotification({
+        score,
+        mode: gameMode,
+        playerName: currentUser?.displayName || currentUser?.email?.split('@')[0],
+      });
+    }
+    prevAppStateRef.current = appState;
+  }, [appState, score, gameMode, currentUser, scheduleMatchNotification]);
 
   // Main Whack Handler
   const handleWhack = (holeIndex: number, clientX?: number, clientY?: number) => {
@@ -875,6 +899,8 @@ export default function App() {
         onLogout={handleLogout}
         isAdmin={isAdmin}
         onOpenAdmin={() => setAdminPanelOpen(true)}
+        notificationPermission={notificationPermission}
+        onRequestNotificationPermission={requestNotificationPermission}
       />
 
       {/* Main Game Stage */}
@@ -925,6 +951,8 @@ export default function App() {
             currentUser={currentUser}
             isAdmin={isAdmin}
             onOpenAdmin={() => setAdminPanelOpen(true)}
+            notificationPermission={notificationPermission}
+            onRequestNotificationPermission={requestNotificationPermission}
           />
         ) : (
           <div className="w-full flex flex-col items-center">
@@ -1023,12 +1051,23 @@ export default function App() {
         onPlayAgain={handleStartGame}
         onBackToMenu={() => setAppState('MENU')}
         onSaveRecord={handleSaveRecord}
+        notificationPermission={notificationPermission}
+        onRequestNotificationPermission={requestNotificationPermission}
       />
 
       <AdminPanelModal
         isOpen={adminPanelOpen}
         onClose={() => setAdminPanelOpen(false)}
         currentAdminUid={currentUser?.uid || ''}
+      />
+
+      <ScorePushToast
+        notification={activeToast}
+        onDismiss={dismissToast}
+        onPlayAgain={() => {
+          if (currentPath !== '/') navigateTo('/');
+          if (currentUser) handleStartGame();
+        }}
       />
 
       <OfflineIndicator />

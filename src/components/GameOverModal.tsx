@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Trophy, RotateCcw, Home, Star, Target, Zap, Save, CheckCircle } from 'lucide-react';
+import { Trophy, RotateCcw, Home, Star, Target, Zap, Save, CheckCircle, Bell, BellRing } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { GameMode, Difficulty, GameStats } from '../types/game';
+import type { NotificationPermissionState } from '../utils/notifications';
 
 interface GameOverModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface GameOverModalProps {
   onPlayAgain: () => void;
   onBackToMenu: () => void;
   onSaveRecord: (playerName: string) => Promise<void> | void;
+  notificationPermission?: NotificationPermissionState;
+  onRequestNotificationPermission?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -25,6 +28,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onPlayAgain,
   onBackToMenu,
   onSaveRecord,
+  notificationPermission = 'default',
+  onRequestNotificationPermission,
 }) => {
   const [playerName, setPlayerName] = useState(() => {
     return currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Campeón';
@@ -172,6 +177,34 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             </p>
           )}
         </form>
+
+        {/* 1-Minute Score Push Notification Status */}
+        <div className="mb-4 p-3 rounded-xl bg-amber-900/45 border border-amber-700/60 flex items-center justify-between gap-2.5 text-left">
+          <div className="flex items-center gap-2 min-w-0">
+            {notificationPermission === 'granted' ? (
+              <BellRing className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <Bell className="w-4 h-4 text-amber-400 shrink-0" />
+            )}
+            <p className="text-[11px] text-amber-100/90 leading-snug">
+              {notificationPermission === 'granted'
+                ? `En 1 minuto te enviaremos una notificación push con tu puntaje (${score.toLocaleString()} pts).`
+                : notificationPermission === 'default'
+                ? '¿Quieres recibir una notificación push en 1 minuto con tu puntaje?'
+                : `En 1 minuto verás un aviso en pantalla con tu puntaje (${score.toLocaleString()} pts).`}
+            </p>
+          </div>
+
+          {notificationPermission === 'default' && onRequestNotificationPermission && (
+            <button
+              type="button"
+              onClick={onRequestNotificationPermission}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold text-[11px] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              Activar
+            </button>
+          )}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-2">

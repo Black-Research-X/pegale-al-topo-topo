@@ -1,10 +1,11 @@
 import React from 'react';
-import { Play, Flame, Heart, Clock, Award, Trophy, BookOpen, UserCheck } from 'lucide-react';
+import { Play, Flame, Heart, Clock, Award, Trophy, BookOpen, UserCheck, Bell, BellRing, BellOff } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { GameMode, Difficulty, HammerId } from '../types/game';
 import { HAMMERS } from '../types/game';
 import { MoleMascotBadge } from './MoleMascotBadge';
 import { PWAInstallButton } from './PWAInstallButton';
+import type { NotificationPermissionState } from '../utils/notifications';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -24,6 +25,8 @@ interface TitleScreenProps {
   currentUser: FirebaseUser | null;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
+  notificationPermission?: NotificationPermissionState;
+  onRequestNotificationPermission?: () => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -44,6 +47,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   currentUser,
   isAdmin = false,
   onOpenAdmin,
+  notificationPermission = 'default',
+  onRequestNotificationPermission,
 }) => {
   const currentHammer = HAMMERS[selectedHammer];
 
@@ -243,6 +248,60 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Push Notification Opt-in Row */}
+      {notificationPermission !== 'unsupported' && onRequestNotificationPermission && (
+        <div className="mb-5 p-3 rounded-2xl bg-amber-900/40 border border-amber-800/60 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                notificationPermission === 'granted'
+                  ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-600/60'
+                  : 'bg-amber-900/80 text-amber-300 border border-amber-700/60'
+              }`}
+            >
+              {notificationPermission === 'granted' ? (
+                <BellRing className="w-4 h-4" />
+              ) : notificationPermission === 'denied' ? (
+                <BellOff className="w-4 h-4 text-amber-400/70" />
+              ) : (
+                <Bell className="w-4 h-4" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-amber-300/80 uppercase font-semibold block">
+                Notificación Push de Puntaje
+              </span>
+              <span className="text-xs font-bold text-amber-100 block truncate">
+                {notificationPermission === 'granted'
+                  ? 'Activada · Aviso 1 min tras terminar'
+                  : notificationPermission === 'denied'
+                  ? 'Bloqueada en navegador · Aviso en pantalla activo'
+                  : 'Recibe tu último puntaje 1 min después de jugar'}
+              </span>
+            </div>
+          </div>
+
+          {notificationPermission === 'default' ? (
+            <button
+              onClick={onRequestNotificationPermission}
+              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              Activar
+            </button>
+          ) : (
+            <span
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 ${
+                notificationPermission === 'granted'
+                  ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/60'
+                  : 'bg-amber-950/60 text-amber-300/70 border border-amber-800/60'
+              }`}
+            >
+              {notificationPermission === 'granted' ? 'Activa' : 'En pantalla'}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Start Game Action */}
       <button

@@ -7,12 +7,14 @@ import {
   scheduleLastScoreNotification,
   restorePendingScoreNotification,
   subscribeToServiceWorkerNotifications,
+  triggerAdminBroadcastNotification,
   type NotificationPermissionState,
   type ScoreNotificationPayload,
 } from '../utils/notifications';
+import { subscribeToAnnouncements } from '../lib/firebase';
 import { sound } from '../utils/audio';
 
-export function useNotifications() {
+export function useNotifications(userId?: string | null) {
   const [permission, setPermission] = useState<NotificationPermissionState>(() =>
     getNotificationPermission()
   );
@@ -21,7 +23,9 @@ export function useNotifications() {
 
   const handleIncomingNotification = useCallback((payload: ScoreNotificationPayload) => {
     setActiveToast(payload);
-    setScheduledInfo(null);
+    if (payload.kind !== 'ADMIN_BROADCAST') {
+      setScheduledInfo(null);
+    }
     sound.playComboUp(1);
   }, []);
 
@@ -43,11 +47,22 @@ export function useNotifications() {
   useEffect(() => {
     const unsubscribe = subscribeToServiceWorkerNotifications(handleIncomingNotification);
     const pending = restorePendingScoreNotification(handleIncomingNotification);
-    if (pending) {
+    if (pending && typeof pending.score === 'number') {
       setScheduledInfo({ score: pending.score, fireAt: pending.fireAt });
     }
     return unsubscribe;
   }, [handleIncomingNotification]);
+
+  // Listen to real-time admin broadcast announcements when signed in
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsubscribe = subscribeToAnnouncements((announcement) => {
+      void triggerAdminBroadcastNotification(announcement, handleIncomingNotification);
+    });
+
+    return () => unsubscribe();
+  }, [userId, handleIncomingNotification]);
 
   const requestPermission = useCallback(async () => {
     const result = await requestNotificationPermission();
@@ -58,7 +73,10 @@ export function useNotifications() {
   const scheduleMatchNotification = useCallback(
     (params: { score: number; mode: GameMode; playerName?: string | null }) => {
       const payload = scheduleLastScoreNotification(params, handleIncomingNotification);
-      setScheduledInfo({ score: payload.score, fireAt: payload.fireAt });
+      setScheduledInfo({
+        score: payload.score ?? params.score,
+        fireAt: payload.fireAt,
+      });
     },
     [handleIncomingNotification]
   );

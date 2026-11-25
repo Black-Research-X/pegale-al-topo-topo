@@ -6,16 +6,21 @@ export interface ScoreNotificationPayload {
   id: string;
   title: string;
   body: string;
-  score: number;
-  modeLabel: string;
+  score?: number;
+  modeLabel?: string;
   fireAt: number;
   delivered: boolean;
+  kind?: 'LAST_SCORE' | 'ADMIN_BROADCAST';
+  senderName?: string;
 }
 
 const STORAGE_KEY = 'mole_pending_score_notification';
+const SEEN_ANNOUNCEMENTS_KEY = 'mole_seen_announcement_ids';
+const ANNOUNCEMENT_CUTOFF_KEY = 'mole_announcement_cutoff_ms';
 export const SCORE_NOTIFICATION_DELAY_MS = 60_000; // 1 minuto exacto
 
 const deliveredIds = new Set<string>();
+const seenAnnouncementIdsMemory = new Set<string>();
 let backupTimerId: number | null = null;
 
 export function isNotificationSupported(): boolean {
@@ -261,4 +266,107 @@ export function cancelPendingScoreNotification(): void {
     savePendingNotification({ ...pending, delivered: true });
   }
   void postMessageToServiceWorker({ type: 'CANCEL_SCORE_NOTIFICATION' });
+}
+
+function getAnnouncementCutoffMs(): number {
+  try {
+    const raw = localStorage.getItem(ANNOUNCEMENT_CUTOFF_KEY);
+    if (raw) {
+      const parsed = Number(raw);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+    // Primera visita: recordar últimos 2 minutos para recibir avisos recién enviados sin inundar historial viejo
+    const initialCutoff = Date.now() - 2 * 60 * 1000;
+    localStorage.setItem(ANNOUNCEMENT_CUTOFF_KEY, String(initialCutoff));
+    return initialCutoff;
+  } catch {
+    return Date.now() - 2 * 60 * 1000;
+  }
+}
+
+function getSeenAnnouncementIds(): Set<string> {
+  const combined = new Set(seenAnnouncementIdsMemory);
+  try {
+    const raw = localStorage.getItem(SEEN_ANNOUNCEMENTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id) => {
+          if (typeof id === 'string') combined.add(id);
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return combined;
+}
+
+function markAnnouncementSeen(id: string, createdAtMs: number): void {
+  seenAnnouncementIdsMemory.add(id);
+  try {
+    const existing = Array.from(getSeenAnnouncementIds());
+    if (!existing.includes(id)) existing.push(id);
+    localStorage.setItem(SEEN_ANNOUNCEMENTS_KEY, JSON.stringify(existing.slice(-40)));
+
+    const prevCutoff = getAnnouncementCutoffMs();
+    if (createdAtMs > prevCutoff) {
+      localStorage.setItem(ANNOUNCEMENT_CUTOFF_KEY, String(createdAtMs));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export async function triggerAdminBroadcastNotification(
+  announcement: {
+    id: string;
+    title: string;
+    message: string;
+    senderName?: string;
+    createdAtMs: number;
+  },
+  onInAppNotify: (payload: ScoreNotificationPayload) => void
+): Promise<boolean> {
+  const seen = getSeenAnnouncementIds();
+  if (seen.has(announcement.id)) return false;
+
+  const cutoffMs = getAnnouncementCutoffMs();
+  if (announcement.createdAtMs < cutoffMs) {
+    markAnnouncementSeen(announcement.id, announcement.createdAtMs);
+    return false;
+  }
+
+  markAnnouncementSeen(announcement.id, announcement.createdAtMs);
+
+  const payload: ScoreNotificationPayload = {
+    id: announcement.id,
+    title: announcement.title,
+    body: announcement.message,
+    fireAt: Date.now(),
+    delivered: true,
+    kind: 'ADMIN_BROADCAST',
+    senderName: announcement.senderName || 'Administrador',
+  };
+
+  // Intentar notificación push real vía Service Worker
+  const sentToSw = await postMessageToServiceWorker({
+    type: 'SHOW_IMMEDIATE_NOTIFICATION',
+    payload: {
+      id: payload.id,
+      title: `📢 ${payload.title}`,
+      body: payload.body,
+      tagPrefix: 'pegale-al-topo-admin-',
+    },
+  });
+
+  if (!sentToSw) {
+    await showBrowserNotificationFallback({
+      ...payload,
+      title: `📢 ${payload.title}`,
+    });
+  }
+
+  onInAppNotify(payload);
+  return true;
 }

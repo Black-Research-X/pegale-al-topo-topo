@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BellRing, Trophy, Play, X } from 'lucide-react';
+import { BellRing, Trophy, Play, X, Megaphone } from 'lucide-react';
 import type { ScoreNotificationPayload } from '../utils/notifications';
 
 interface ScorePushToastProps {
@@ -23,14 +23,22 @@ export const ScorePushToast: React.FC<ScorePushToastProps> = ({
 
   if (!notification) return null;
 
+  const isAdminBroadcast = notification.kind === 'ADMIN_BROADCAST';
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-20 right-4 z-50 w-[min(92vw,370px)] rounded-2xl bg-amber-950/95 border-2 border-amber-400/90 text-amber-50 shadow-2xl p-4 backdrop-blur-md"
+      className={`fixed top-20 right-4 z-50 w-[min(92vw,375px)] rounded-2xl bg-amber-950/95 border-2 text-amber-50 shadow-2xl p-4 backdrop-blur-md ${
+        isAdminBroadcast ? 'border-emerald-400/90' : 'border-amber-400/90'
+      }`}
     >
       <div className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded-xl overflow-hidden border border-amber-500/70 shrink-0 bg-amber-900">
+        <div
+          className={`w-11 h-11 rounded-xl overflow-hidden border shrink-0 bg-amber-900 ${
+            isAdminBroadcast ? 'border-emerald-400/80' : 'border-amber-500/70'
+          }`}
+        >
           <img
             src="/pwa-192x192.png"
             alt="Pégale al Topo"
@@ -40,9 +48,22 @@ export const ScorePushToast: React.FC<ScorePushToastProps> = ({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400">
-              <BellRing className="w-3.5 h-3.5" />
-              Última Partida · 1 min
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${
+                isAdminBroadcast ? 'text-emerald-400' : 'text-amber-400'
+              }`}
+            >
+              {isAdminBroadcast ? (
+                <>
+                  <Megaphone className="w-3.5 h-3.5" />
+                  Aviso del Administrador
+                </>
+              ) : (
+                <>
+                  <BellRing className="w-3.5 h-3.5" />
+                  Última Partida · 1 min
+                </>
+              )}
             </span>
             <button
               onClick={onDismiss}
@@ -62,20 +83,38 @@ export const ScorePushToast: React.FC<ScorePushToastProps> = ({
           </p>
 
           <div className="mt-3 flex items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-900/80 border border-amber-700/80 text-xs font-bold text-amber-300 tabular-nums">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>{notification.score.toLocaleString()} pts</span>
-            </div>
+            {isAdminBroadcast ? (
+              <span className="text-[11px] font-semibold text-emerald-300/90 truncate">
+                Enviado por {notification.senderName || 'Admin'}
+              </span>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-900/80 border border-amber-700/80 text-xs font-bold text-amber-300 tabular-nums">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>{(notification.score ?? 0).toLocaleString()} pts</span>
+              </div>
+            )}
 
             <button
               onClick={() => {
                 onDismiss();
-                onPlayAgain();
+                if (!isAdminBroadcast) {
+                  onPlayAgain();
+                }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                isAdminBroadcast
+                  ? 'bg-emerald-400 hover:bg-emerald-300 text-amber-950'
+                  : 'bg-amber-400 hover:bg-amber-300 text-amber-950'
+              }`}
             >
-              <Play className="w-3.5 h-3.5 fill-amber-950" />
-              <span>Jugar ahora</span>
+              {isAdminBroadcast ? (
+                <span>Entendido</span>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-amber-950" />
+                  <span>Jugar ahora</span>
+                </>
+              )}
             </button>
           </div>
         </div>

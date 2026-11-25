@@ -128,6 +128,39 @@
         }
       },
       "required": ["adminId", "email"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Aviso global enviado por un administrador mediante notificación push a todos los usuarios",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Título breve del aviso push",
+          "maxLength": 100
+        },
+        "message": {
+          "type": "string",
+          "description": "Contenido del aviso enviado a los jugadores",
+          "maxLength": 500
+        },
+        "senderUid": {
+          "type": "string",
+          "description": "UID del administrador que envió el aviso",
+          "maxLength": 128
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Nombre del administrador que envió el aviso",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca de tiempo del servidor al enviar el aviso"
+        }
+      },
+      "required": ["title", "message", "senderUid", "createdAt"]
     }
   },
   "firestore": {
@@ -148,6 +181,12 @@
         "$ref": "#/entities/Admin"
       },
       "description": "Colección de usuarios con rol de administrador del sistema"
+    },
+    "/announcements/{announcementId}": {
+      "schema": {
+        "$ref": "#/entities/Announcement"
+      },
+      "description": "Avisos globales enviados por administradores como notificaciones push"
     }
   }
 }

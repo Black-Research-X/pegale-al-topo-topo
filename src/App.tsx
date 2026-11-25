@@ -86,14 +86,14 @@ export default function App() {
   // Sound mute state
   const [isMuted, setIsMuted] = useState(() => sound.getMuted());
 
-  // Push Notifications (1 minute after game over)
+  // Push Notifications (1 minute after game over + admin broadcasts)
   const {
     permission: notificationPermission,
     requestPermission: requestNotificationPermission,
     scheduleMatchNotification,
     activeToast,
     dismissToast,
-  } = useNotifications();
+  } = useNotifications(currentUser?.uid);
   const prevAppStateRef = useRef<AppState>(appState);
 
   // Keyboard shortcut hints toggle

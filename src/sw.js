@@ -111,6 +111,26 @@ self.addEventListener('message', (event) => {
       clearTimeout(scheduledTimer);
       scheduledTimer = null;
     }
+  } else if (data.type === 'SHOW_IMMEDIATE_NOTIFICATION' && data.payload) {
+    const { id, title, body, tagPrefix = 'pegale-al-topo-admin-' } = data.payload;
+    const tag = `${tagPrefix}${id}`;
+    if (self.Notification && self.Notification.permission === 'granted') {
+      event.waitUntil(
+        self.registration.showNotification(title, {
+          body,
+          icon: '/pwa-192x192.png',
+          badge: '/pwa-192x192.png',
+          tag,
+          vibrate: [200, 100, 200],
+          renotify: true,
+          data: {
+            url: '/',
+            id,
+            type: 'ADMIN_BROADCAST',
+          },
+        }).catch((err) => console.warn('SW immediate notification failed:', err))
+      );
+    }
   }
 });
 

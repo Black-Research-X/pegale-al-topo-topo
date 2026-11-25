@@ -12,12 +12,16 @@ import {
   getDocFromServer,
   setDoc,
   getDoc,
+  addDoc,
   collection,
   query,
   orderBy,
   limit,
   getDocs,
   deleteDoc,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -351,3 +355,128 @@ export async function removeAdminUser(adminId: string): Promise<void> {
     handleFirestoreError(err, OperationType.DELETE, `admins/${adminId}`);
   }
 }
+
+// ADMIN BROADCAST ANNOUNCEMENTS
+
+export interface AdminAnnouncementData {
+  id: string;
+  title: string;
+  message: string;
+  senderUid: string;
+  senderName: string;
+  createdAtMs: number;
+}
+
+function parseTimestampMs(raw: unknown): number {
+  if (raw instanceof Timestamp) return raw.toMillis();
+  if (raw && typeof (raw as { toMillis?: () => number }).toMillis === 'function') {
+    return (raw as { toMillis: () => number }).toMillis();
+  }
+  if (typeof raw === 'string') {
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? Date.now() : parsed;
+  }
+  return Date.now();
+}
+
+export async function sendAdminAnnouncement(
+  title: string,
+  message: string,
+  senderName?: string | null
+): Promise<string> {
+  const current = auth.currentUser;
+  if (!current) {
+    throw new Error('Debes iniciar sesión como administrador.');
+  }
+
+  const sanitizedTitle = title.trim().slice(0, 100);
+  const sanitizedMessage = message.trim().slice(0, 500);
+  const sanitizedSender = (senderName || current.displayName || current.email || 'Administrador')
+    .trim()
+    .slice(0, 100);
+
+  if (!sanitizedTitle || !sanitizedMessage) {
+    throw new Error('El título y el mensaje del aviso son obligatorios.');
+  }
+
+  try {
+    const docRef = await addDoc(collection(db, 'announcements'), {
+      title: sanitizedTitle,
+      message: sanitizedMessage,
+      senderUid: current.uid,
+      senderName: sanitizedSender,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'announcements');
+  }
+}
+
+export async function fetchAdminAnnouncements(): Promise<AdminAnnouncementData[]> {
+  try {
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(30));
+    const snap = await getDocs(q);
+    const items: AdminAnnouncementData[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      items.push({
+        id: d.id,
+        title: data.title || 'Aviso',
+        message: data.message || '',
+        senderUid: data.senderUid || '',
+        senderName: data.senderName || 'Administrador',
+        createdAtMs: parseTimestampMs(data.createdAt),
+      });
+    });
+    return items;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, 'announcements');
+  }
+}
+
+export async function deleteAdminAnnouncement(announcementId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'announcements', announcementId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `announcements/${announcementId}`);
+  }
+}
+
+export function subscribeToAnnouncements(
+  onNewAnnouncement: (announcement: AdminAnnouncementData) => void
+): () => void {
+  const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(5));
+  let isFirstSnapshot = true;
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const changes = snapshot.docChanges();
+      changes.forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          // Skip items whose serverTimestamp hasn't resolved locally yet if pending, or handle cleanly
+          const item: AdminAnnouncementData = {
+            id: change.doc.id,
+            title: data.title || 'Aviso de Pégale al Topo',
+            message: data.message || '',
+            senderUid: data.senderUid || '',
+            senderName: data.senderName || 'Administrador',
+            createdAtMs: data.createdAt ? parseTimestampMs(data.createdAt) : Date.now(),
+          };
+          // Let caller filter out already-seen notices on initial load
+          if (!isFirstSnapshot || item.createdAtMs > 0) {
+            onNewAnnouncement(item);
+          }
+        }
+      });
+      isFirstSnapshot = false;
+    },
+    (err) => {
+      // Log without throwing unhandled async snapshot error if user logs out mid-stream
+      console.warn('Error al escuchar avisos globales:', err);
+    }
+  );
+}
+

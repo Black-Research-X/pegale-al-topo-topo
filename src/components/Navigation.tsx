@@ -1,6 +1,7 @@
 import React from 'react';
 import { Volume2, VolumeX, Play, LogOut, User, ShieldCheck, BookOpen } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavigationProps {
   onOpenHowTo: () => void;
@@ -107,6 +108,9 @@ export const Navigation: React.FC<NavigationProps> = ({
             <ShieldCheck className="w-4 h-4" />
           </button>
         )}
+
+        {/* PWA Install Prompt */}
+        <PWAInstallButton variant="header" />
 
         {/* Audio Mute */}
         <button

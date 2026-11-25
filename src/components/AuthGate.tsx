@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LogIn, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 import { MoleMascotBadge } from './MoleMascotBadge';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AuthGateProps {
   onSuccess?: () => void;
@@ -102,6 +103,10 @@ export const AuthGate: React.FC<AuthGateProps> = () => {
 
         <span>{loading ? 'Iniciando sesión...' : 'Iniciar Sesión con Google (Gmail)'}</span>
       </button>
+
+      <div className="mt-3">
+        <PWAInstallButton variant="banner" />
+      </div>
 
       <p className="text-[11px] text-amber-200/60 mt-4">
         Usamos Firebase Authentication con Google para identificarte de forma segura.

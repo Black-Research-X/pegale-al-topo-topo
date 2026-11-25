@@ -36,6 +36,7 @@ import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { InstructionsPage } from './components/InstructionsPage';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { moleBackdropBase64 } from './assets/images/moleBackdropBase64';
 
 type AppState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
@@ -763,8 +764,8 @@ export default function App() {
       // ignore
     }
 
-    // Save to Firestore if user is authenticated with Google
-    if (currentUser) {
+    // Save to Firestore if user is authenticated with Google and online
+    if (currentUser && navigator.onLine) {
       try {
         await addDoc(collection(db, 'scores'), {
           userId: currentUser.uid,
@@ -1029,6 +1030,8 @@ export default function App() {
         onClose={() => setAdminPanelOpen(false)}
         currentAdminUid={currentUser?.uid || ''}
       />
+
+      <OfflineIndicator />
     </div>
   );
 }

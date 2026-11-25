@@ -4,6 +4,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import type { GameMode, Difficulty, HammerId } from '../types/game';
 import { HAMMERS } from '../types/game';
 import { MoleMascotBadge } from './MoleMascotBadge';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -253,7 +254,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </button>
 
       {/* Dedicated Instructions Banner Button */}
-      <div className="mb-4">
+      <div className="mb-4 space-y-2">
         <button
           onClick={onOpenInstructions}
           className="w-full py-2.5 px-4 rounded-xl bg-amber-900/60 hover:bg-amber-900 text-amber-200 hover:text-white border border-amber-700/70 transition-all flex items-center justify-center gap-2 text-xs font-bold cursor-pointer"
@@ -261,6 +262,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <BookOpen className="w-4 h-4 text-amber-400" />
           <span>Ver Manual e Instrucciones Completas del Juego (/instrucciones)</span>
         </button>
+        <PWAInstallButton variant="banner" />
       </div>
 
       {/* Auxiliary Nav Buttons */}
